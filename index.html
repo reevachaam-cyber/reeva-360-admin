@@ -1,0 +1,1591 @@
+
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>House Manager | REEVA 360</title>
+
+  <style>
+    :root {
+      --reeva-blue: #00387a;
+      --reeva-cream: #f5e58d;
+      --reeva-white: #ffffff;
+      --reeva-black: #000000;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        padding: 24px;
+        background: url("assets/my-background.jpg") center center / cover no-repeat;
+        font-family: Arial, sans-serif;
+}
+    .manager {
+      max-width: 650px;
+      margin: 0 auto;
+      padding: 28px;
+      background: var(--reeva-cream);
+      border-radius: 16px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      color: var(--reeva-blue);
+    }
+
+    .description {
+      margin-bottom: 24px;
+      color: var(--reeva-black);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid var(--reeva-blue);
+      border-radius: 10px;
+      font-size: 18px;
+    }
+
+
+/* ==========================================
+   แผนผังสำหรับเลือกตำแหน่งบ้าน
+========================================== */
+
+/* กรอบแสดงแผนผัง */
+
+/* ==========================================
+   ระบบแผนผังสำหรับผู้ดูแล
+   ซูม / ลาก / เลือกตำแหน่งบ้าน
+========================================== */
+
+/* กรอบที่มองเห็นแผนผัง */
+.map-picker {
+  position: relative;
+  width: 100%;
+  height: 440px;
+  margin-top: 20px;
+
+  border: 2px solid var(--reeva-blue);
+  border-radius: 10px;
+
+  background: var(--reeva-white);
+  overflow: hidden;
+
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+/* เปลี่ยนรูปเมาส์ขณะลาก */
+.map-picker.dragging {
+  cursor: grabbing;
+}
+
+/* ชั้นสำหรับซูมและเลื่อนภาพ */
+.map-canvas {
+  position: relative;
+  width: 100%;
+
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* ภาพแผนผังจริง */
+.map-canvas img {
+  display: block;
+  width: 100%;
+  height: auto;
+
+  pointer-events: none;
+  user-select: none;
+}
+
+/* จุดบ้านที่เลือก */
+.selected-marker {
+  position: absolute;
+  z-index: 2;
+
+  width: 13px;
+  height: 13px;
+
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+
+  background: var(--reeva-blue);
+
+  box-shadow:
+    0 0 0 3px var(--reeva-cream);
+
+  transform: translate(-50%, -50%);
+
+  pointer-events: none;
+}
+
+/* ซ่อนจุดก่อนเลือกตำแหน่ง */
+.selected-marker[hidden] {
+  display: none;
+}
+
+/* กลุ่มปุ่มควบคุมแผนผัง */
+.picker-controls {
+  position: absolute;
+  z-index: 5;
+
+  right: 12px;
+  bottom: 12px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* ปุ่มซูมเข้า / ออก / รีเซ็ต */
+.picker-controls button {
+  width: 39px;
+  height: 39px;
+
+  border: 1px solid #d4dfeb;
+  border-radius: 9px;
+
+  background: #ffffff;
+  color: var(--reeva-blue);
+
+  font-size: 23px;
+  font-weight: bold;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, .12);
+}
+
+.picker-controls button:hover {
+  background: var(--reeva-cream);
+}
+
+/* แสดงระดับซูม */
+.zoom-label {
+  position: absolute;
+  z-index: 5;
+
+  top: 12px;
+  right: 12px;
+
+  padding: 6px 10px;
+
+  border-radius: 7px;
+
+  background: rgba(255, 255, 255, .95);
+  color: var(--reeva-blue);
+
+  font-size: 12px;
+  font-weight: bold;
+
+  pointer-events: none;
+}
+
+/* รองรับหน้าจอขนาดเล็ก */
+@media (max-width: 700px) {
+  .map-picker {
+    height: 380px;
+  }
+}
+
+
+/* ข้อความแสดงพิกัด */
+.position-info {
+  margin-top: 12px;
+  padding: 12px;
+
+  border-radius: 8px;
+  background: var(--reeva-white);
+
+  color: var(--reeva-blue);
+  text-align: center;
+  font-weight: bold;
+}
+
+
+/* กรอกพิกัด X/Y ให้ตรงกับตำแหน่งบนแผนผัง */
+.coordinate-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.coordinate-fields label { margin-bottom: 6px; }
+.coordinate-fields input { width: 100%; }
+.coordinate-hint { margin: 9px 0 0; font-size: 13px; color: var(--reeva-blue); }
+
+    .save-button {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 14px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--reeva-blue);
+      color: var(--reeva-white);
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .save-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+     /* ซ่อนหน้าจัดการบ้านก่อนเข้าสู่ระบบ */
+    [hidden] {
+       display: none !important;
+    }
+
+
+/* ระบบจัดการภาพเว็บไซต์: เพิ่มเฉพาะส่วนหลังบ้าน */
+.site-image-manager{margin-top:35px;padding-top:22px;border-top:2px solid var(--reeva-blue)}
+.site-image-manager h2{color:var(--reeva-blue);font-size:22px}
+.site-image-manager>p{font-size:14px;line-height:1.7}
+.site-image-row{padding:16px;margin:13px 0;background:white;border:1px solid #dbe5ee;border-radius:12px}
+.site-image-row h3{color:var(--reeva-blue);font-size:16px;margin:0 0 12px}
+.site-image-preview{width:100%;max-height:165px;object-fit:contain;background:#edf3fa;margin-bottom:10px;border-radius:8px}
+.site-image-file,.site-image-caption{font-size:14px;margin-bottom:10px}
+.site-image-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.site-image-buttons button{border:0;border-radius:8px;padding:10px 12px;background:var(--reeva-blue);color:white;cursor:pointer}
+.site-image-buttons .site-image-reset{background:#e9edf2;color:var(--reeva-blue)}
+.site-image-buttons button:disabled{opacity:.5;cursor:wait}
+.site-image-message{margin:10px 0 0;font-size:13px;color:#00387a}
+
+  </style>
+</head>
+
+
+<body>
+
+  <!-- หน้าล็อกอิน REEVA Manager -->
+  <section class="manager" id="login-panel">
+
+    <h1>REEVA Manager Login</h1>
+
+    <p class="description">
+      เข้าสู่ระบบสำหรับเจ้าหน้าที่ REEVA
+    </p>
+
+    <label for="login-email">อีเมล</label>
+    <input
+      id="login-email"
+      type="email"
+      placeholder="กรอกอีเมลผู้ดูแล"
+      autocomplete="username"
+    >
+
+    <label for="login-password" style="margin-top: 20px;">
+      รหัสผ่าน
+    </label>
+    <input
+      id="login-password"
+      type="password"
+      placeholder="กรอกรหัสผ่าน"
+      autocomplete="current-password"
+    >
+
+    <button class="save-button" id="login-button" type="button">
+      เข้าสู่ระบบ
+    </button>
+
+    <p id="login-message" role="status"></p>
+
+  </section>
+
+  <!-- หน้าจัดการบ้านเดิม -->
+  <main class="manager" id="manager-panel" hidden>
+
+<h1>REEVA House Manager</h1>
+
+<button
+  class="save-button"
+  id="logout-button"
+  type="button"
+  style="margin-top: 10px; margin-bottom: 20px;"
+>
+  ออกจากระบบ
+</button>
+
+    <p class="description">
+      เครื่องมือจัดการข้อมูลบ้านภายในโครงการ
+    </p>
+
+    <div class="manager-actions">
+      <button id="new-house-button" type="button">+ เพิ่มบ้านใหม่ / ล้างฟอร์ม</button>
+      <button id="refresh-houses-button" type="button">รีเฟรชรายการบ้าน</button>
+    </div>
+    <div class="house-directory" id="house-directory" aria-label="รายการบ้าน">
+      <p id="house-list-message" role="status">กำลังรอโหลดรายการบ้าน</p>
+      <div id="house-list"></div>
+    </div>
+    <p id="edit-mode-info" class="mode-info">โหมดเพิ่มบ้านใหม่</p>
+
+    <label for="house-id">รหัสบ้าน</label>
+
+    <input
+      id="house-id"
+      type="text"
+      placeholder="เช่น A30"
+      autocomplete="off"
+    >
+    
+<!-- ค้นหาข้อมูลบ้านที่บันทึกไว้แล้ว -->
+<button
+  class="save-button"
+  id="find-house-button"
+  type="button"
+  style="margin-top: 10px;"
+>
+  ค้นหาบ้านเดิม
+</button>
+
+<p id="find-house-message" role="status"></p>
+
+    
+<!-- ==========================================
+     ข้อมูลเพิ่มเติมของบ้าน
+     ส่วนที่ 1: รูปภาพตัวอย่าง
+     ส่วนที่ 2: ลิงก์ Virtual Tour 360°
+========================================== -->
+
+<!-- เลือกรูปภาพบ้านจากคอมพิวเตอร์ -->
+<div style="margin-top: 20px;">
+
+  <label for="house-photo-input">
+    รูปภาพตัวอย่างบ้าน
+  </label>
+
+  <input
+    id="house-photo-input"
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+  >
+
+<!-- ==========================================
+     ตัวอย่างรูปภาพบ้านที่เลือก
+     ยังไม่อัปโหลดหรือบันทึกไฟล์
+========================================== -->
+
+<div
+  id="house-photo-preview"
+  style="display: none; margin-top: 14px;"
+>
+  <img
+    id="house-preview-image"
+    alt="ตัวอย่างรูปภาพบ้าน"
+    style="
+      display: block;
+      width: 100%;
+      max-height: 250px;
+      object-fit: contain;
+      border: 2px solid #00387a;
+      border-radius: 10px;
+      background: #ffffff;
+    "
+  >
+</div>
+
+</div>
+
+<label class="visible-control" for="house-visible">
+  <input id="house-visible" type="checkbox">
+  แสดงบ้านหลังนี้บนหน้าเว็บไซต์ (เมื่อหน้าเว็บไซต์เชื่อมฐานข้อมูลแล้ว)
+</label>
+
+<!-- กรอกที่อยู่ทัวร์ 360° -->
+<div style="margin-top: 20px;">
+
+  <label for="house-tour-url">
+    ลิงก์ Virtual Tour 360°
+  </label>
+
+  <input
+    id="house-tour-url"
+    type="text"
+    placeholder="เช่น tours/A30/app-files/index.html"
+    autocomplete="off"
+  >
+
+</div>
+
+
+<!-- ==========================================
+     พื้นที่เลือกตำแหน่งบ้านบนแผนผัง
+     รองรับการซูม ลาก และคลิกปักจุด
+========================================== -->
+
+<div class="map-picker" id="map-picker">
+
+  <!-- ชั้นแผนผังที่เลื่อนและซูมได้ -->
+  <div class="map-canvas" id="map-canvas">
+
+    <!-- ภาพแผนผังโครงการ -->
+    <img
+      id="manager-map"
+      src="assets/project-map.jpg"
+      alt="แผนผังโครงการ REEVA"
+      draggable="false"
+    >
+
+    <!-- จุดแสดงตำแหน่งบ้านที่เลือก -->
+    <div
+      class="selected-marker"
+      id="selected-marker"
+      hidden
+    ></div>
+
+  </div>
+
+  <!-- แสดงระดับซูม -->
+  <div class="zoom-label" id="zoom-label">
+    100%
+  </div>
+
+  <!-- ปุ่มซูมเข้า ออก และรีเซ็ต -->
+  <div class="picker-controls">
+
+    <button
+      id="picker-zoom-in"
+      type="button"
+      aria-label="ซูมเข้า"
+    >+</button>
+
+    <button
+      id="picker-zoom-out"
+      type="button"
+      aria-label="ซูมออก"
+    >−</button>
+
+    <button
+      id="picker-reset"
+      type="button"
+      aria-label="รีเซ็ตแผนผัง"
+    >↺</button>
+
+  </div>
+
+</div>
+
+<!-- แสดงพิกัดของตำแหน่งที่เลือก -->
+
+<div class="position-info" id="position-info">
+  ยังไม่ได้เลือกตำแหน่งบ้าน
+</div>
+
+<!-- ปรับตำแหน่งอย่างแม่นยำได้โดยไม่ต้องคลิกเล็งบนแผนผัง -->
+<div class="coordinate-fields">
+  <div>
+    <label for="coordinate-x">พิกัด X (%)</label>
+    <input id="coordinate-x" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="เช่น 53.30">
+  </div>
+  <div>
+    <label for="coordinate-y">พิกัด Y (%)</label>
+    <input id="coordinate-y" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="เช่น 52.00">
+  </div>
+</div>
+<p class="coordinate-hint">คลิกเลือกจุดบนแผนผัง หรือกรอกตัวเลข X/Y ให้ตรงได้เลย (0–100%)</p>
+
+
+
+<button
+  class="save-button"
+  id="save-house-button"
+  type="button"
+  disabled
+>
+  บันทึกข้อมูลบ้าน
+</button>
+
+<p id="save-house-message" role="status"></p>
+
+<!-- แสดงเฉพาะขณะเลือกแก้ไขบ้านเดิม -->
+<button class="save-button" id="delete-house-button" type="button" hidden style="background:#a42626;">ลบบ้านหลังนี้</button>
+
+
+
+<section class="site-image-manager" aria-label="จัดการภาพเว็บไซต์ Premium">
+  <h2>จัดการภาพหน้า Premium</h2>
+  <p>เปลี่ยนพื้นหลังทั้งหน้าและรูป Gallery โดยไม่เปลี่ยนดีไซน์เดิม (JPG, PNG, WebP ไม่เกิน 5 MB ต่อรูป)</p>
+  <p id="site-images-status" role="status">ยังไม่ได้โหลดข้อมูลภาพ</p>
+
+  <div class="site-image-row" data-slot="background">
+    <h3>พื้นหลังเว็บไซต์ (ทั้งหน้า)</h3>
+    <img class="site-image-preview" alt="ตัวอย่าง พื้นหลังเว็บไซต์ (ทั้งหน้า)" hidden>
+    <input class="site-image-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="เลือกรูป พื้นหลังเว็บไซต์ (ทั้งหน้า)">
+    <div class="site-image-buttons">
+      <button type="button" class="site-image-upload">อัปโหลดและใช้รูปนี้</button>
+      <button type="button" class="site-image-reset">คืนค่ารูปเดิม</button>
+    </div>
+    <p class="site-image-message" role="status"></p>
+  </div>
+
+  <div class="site-image-row" data-slot="gallery_1">
+    <h3>Gallery รูปที่ 1</h3>
+    <img class="site-image-preview" alt="ตัวอย่าง Gallery รูปที่ 1" hidden>
+    <input class="site-image-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="เลือกรูป Gallery รูปที่ 1">
+    <input class="site-image-caption" type="text" maxlength="120" placeholder="คำบรรยายใต้รูป" aria-label="คำบรรยายใต้รูป">
+    <div class="site-image-buttons">
+      <button type="button" class="site-image-upload">อัปโหลดและใช้รูปนี้</button>
+      <button type="button" class="site-image-reset">คืนค่ารูปเดิม</button>
+    </div>
+    <p class="site-image-message" role="status"></p>
+  </div>
+
+  <div class="site-image-row" data-slot="gallery_2">
+    <h3>Gallery รูปที่ 2</h3>
+    <img class="site-image-preview" alt="ตัวอย่าง Gallery รูปที่ 2" hidden>
+    <input class="site-image-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="เลือกรูป Gallery รูปที่ 2">
+    <input class="site-image-caption" type="text" maxlength="120" placeholder="คำบรรยายใต้รูป" aria-label="คำบรรยายใต้รูป">
+    <div class="site-image-buttons">
+      <button type="button" class="site-image-upload">อัปโหลดและใช้รูปนี้</button>
+      <button type="button" class="site-image-reset">คืนค่ารูปเดิม</button>
+    </div>
+    <p class="site-image-message" role="status"></p>
+  </div>
+
+  <div class="site-image-row" data-slot="gallery_3">
+    <h3>Gallery รูปที่ 3</h3>
+    <img class="site-image-preview" alt="ตัวอย่าง Gallery รูปที่ 3" hidden>
+    <input class="site-image-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="เลือกรูป Gallery รูปที่ 3">
+    <input class="site-image-caption" type="text" maxlength="120" placeholder="คำบรรยายใต้รูป" aria-label="คำบรรยายใต้รูป">
+    <div class="site-image-buttons">
+      <button type="button" class="site-image-upload">อัปโหลดและใช้รูปนี้</button>
+      <button type="button" class="site-image-reset">คืนค่ารูปเดิม</button>
+    </div>
+    <p class="site-image-message" role="status"></p>
+  </div>
+
+  <div class="site-image-row" data-slot="gallery_4">
+    <h3>Gallery รูปที่ 4</h3>
+    <img class="site-image-preview" alt="ตัวอย่าง Gallery รูปที่ 4" hidden>
+    <input class="site-image-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="เลือกรูป Gallery รูปที่ 4">
+    <input class="site-image-caption" type="text" maxlength="120" placeholder="คำบรรยายใต้รูป" aria-label="คำบรรยายใต้รูป">
+    <div class="site-image-buttons">
+      <button type="button" class="site-image-upload">อัปโหลดและใช้รูปนี้</button>
+      <button type="button" class="site-image-reset">คืนค่ารูปเดิม</button>
+    </div>
+    <p class="site-image-message" role="status"></p>
+  </div>
+</section>
+  </main>
+
+<!-- ==========================================
+     ระบบเลือกตำแหน่งบ้าน
+     คลิกบนภาพเพื่อรับค่า X และ Y
+     ยังไม่มีระบบบันทึกข้อมูล
+========================================== -->
+
+<!-- โหลด Supabase สำหรับเชื่อมฐานข้อมูล REEVA -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  "use strict";
+
+/* ==========================================
+   เชื่อมต่อฐานข้อมูล REEVA 360
+========================================== */
+
+const SUPABASE_URL = "https://mneqrawpnlklgwsojfhx.supabase.co";
+const SUPABASE_KEY = "sb_publishable__9aKRmsOCfzeYYIF4wyt5Q_RFOScvIH";
+
+const reevaDB = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+
+
+  /* ==========================================
+     01. เชื่อมต่อองค์ประกอบ HTML
+  ========================================== */
+
+  const mapPicker = document.getElementById("map-picker");
+  const mapCanvas = document.getElementById("map-canvas");
+  const managerMap = document.getElementById("manager-map");
+
+  const selectedMarker =
+    document.getElementById("selected-marker");
+
+  const positionInfo =
+    document.getElementById("position-info");
+
+  const zoomLabel =
+    document.getElementById("zoom-label");
+
+
+  /* ==========================================
+     02. ตัวแปรควบคุมแผนผัง
+
+     zoom = ระดับซูม
+     panX = ระยะเลื่อนแนวนอน
+     panY = ระยะเลื่อนแนวตั้ง
+  ========================================== */
+
+  let zoom = 1;
+  let panX = 0;
+  let panY = 0;
+
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 6;
+
+  /* พิกัดบ้านที่เลือก */
+  let selectedX = null;
+  let selectedY = null;
+  let editingHouseId = null;
+
+  const coordinateXInput = document.getElementById("coordinate-x");
+  const coordinateYInput = document.getElementById("coordinate-y");
+
+  function renderSelectedPosition() {
+    const valid = Number.isFinite(selectedX) && Number.isFinite(selectedY) &&
+      selectedX >= 0 && selectedX <= 100 && selectedY >= 0 && selectedY <= 100;
+    selectedMarker.hidden = !valid;
+    if (valid) {
+      selectedMarker.style.left = selectedX + "%";
+      selectedMarker.style.top = selectedY + "%";
+      positionInfo.textContent = "ตำแหน่งที่เลือก: X = " + selectedX.toFixed(2) +
+        "% | Y = " + selectedY.toFixed(2) + "%";
+    } else {
+      positionInfo.textContent = "กรุณากำหนดพิกัด X และ Y ระหว่าง 0 ถึง 100";
+    }
+    updatePicker();
+    updateSaveButton();
+  }
+
+  function syncCoordinateInputs() {
+    coordinateXInput.value = Number.isFinite(selectedX) ? selectedX.toFixed(2) : "";
+    coordinateYInput.value = Number.isFinite(selectedY) ? selectedY.toFixed(2) : "";
+  }
+
+  function readCoordinatesFromInputs() {
+    // ช่องว่างหรือค่าเกินขอบเขต ไม่ถือเป็นพิกัดที่บันทึกได้
+    const parseCoordinate = input => {
+      if (input.value.trim() === "" || !input.validity.valid) return null;
+      const n = Number(input.value);
+      return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+    };
+    selectedX = parseCoordinate(coordinateXInput);
+    selectedY = parseCoordinate(coordinateYInput);
+    renderSelectedPosition();
+  }
+  coordinateXInput.addEventListener("input", readCoordinatesFromInputs);
+  coordinateYInput.addEventListener("input", readCoordinatesFromInputs);
+
+  /* ข้อมูลการลากแผนผัง */
+  let activePointer = null;
+  let startX = 0;
+  let startY = 0;
+  let lastX = 0;
+  let lastY = 0;
+  let moved = false;
+
+
+  /* ==========================================
+     03. จำกัดพื้นที่ลากแผนผัง
+
+     ป้องกันไม่ให้เลื่อนภาพหลุดจากกรอบ
+     มากเกินไป
+  ========================================== */
+
+  function limitPan() {
+
+    const viewportWidth = mapPicker.clientWidth;
+    const viewportHeight = mapPicker.clientHeight;
+
+    const imageWidth = mapCanvas.offsetWidth * zoom;
+    const imageHeight = mapCanvas.offsetHeight * zoom;
+
+    if (imageWidth <= viewportWidth) {
+      panX = (viewportWidth - imageWidth) / 2;
+    } else {
+      panX = Math.max(
+        viewportWidth - imageWidth,
+        Math.min(0, panX)
+      );
+    }
+
+    if (imageHeight <= viewportHeight) {
+      panY = (viewportHeight - imageHeight) / 2;
+    } else {
+      panY = Math.max(
+        viewportHeight - imageHeight,
+        Math.min(0, panY)
+      );
+    }
+  }
+
+
+  /* ==========================================
+     04. อัปเดตภาพและจุดบ้าน
+
+     จุดบ้านจะเคลื่อนตามภาพ
+     แต่ไม่ขยายขนาดตามระดับซูม
+  ========================================== */
+
+  function updatePicker() {
+
+    limitPan();
+
+    mapCanvas.style.transform =
+      `translate(${panX}px, ${panY}px) scale(${zoom})`;
+
+    /* ย่อขนาดจุดสวนทางกับการซูม */
+    selectedMarker.style.transform =
+      `translate(-50%, -50%) scale(${1 / zoom})`;
+
+    zoomLabel.textContent =
+      Math.round(zoom * 100) + "%";
+  }
+
+
+  /* ==========================================
+     05. ซูมตรงตำแหน่งที่ชี้
+
+     ทำให้ซูมแล้วตำแหน่งบนภาพ
+     อยู่ใต้เมาส์ใกล้เคียงจุดเดิม
+  ========================================== */
+
+  function zoomAt(newZoom, x, y) {
+
+    newZoom = Math.max(
+      MIN_ZOOM,
+      Math.min(MAX_ZOOM, newZoom)
+    );
+
+    const ratio = newZoom / zoom;
+
+    panX = x - (x - panX) * ratio;
+    panY = y - (y - panY) * ratio;
+
+    zoom = newZoom;
+
+    updatePicker();
+  }
+
+
+  /* ==========================================
+     06. ซูมด้วยล้อเมาส์
+  ========================================== */
+
+  mapPicker.addEventListener(
+    "wheel",
+    function (event) {
+
+      event.preventDefault();
+
+      const rect = mapPicker.getBoundingClientRect();
+
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const factor =
+        event.deltaY < 0 ? 1.2 : 1 / 1.2;
+
+      zoomAt(zoom * factor, x, y);
+
+    },
+    { passive: false }
+  );
+
+
+  /* ==========================================
+     07. ปุ่มควบคุมการซูม
+  ========================================== */
+
+  document.getElementById("picker-zoom-in")
+    .addEventListener("click", function () {
+
+      zoomAt(
+        zoom * 1.4,
+        mapPicker.clientWidth / 2,
+        mapPicker.clientHeight / 2
+      );
+
+    });
+
+
+  document.getElementById("picker-zoom-out")
+    .addEventListener("click", function () {
+
+      zoomAt(
+        zoom / 1.4,
+        mapPicker.clientWidth / 2,
+        mapPicker.clientHeight / 2
+      );
+
+    });
+
+
+  document.getElementById("picker-reset")
+    .addEventListener("click", function () {
+
+      zoom = 1;
+      panX = 0;
+      panY = 0;
+
+      updatePicker();
+
+    });
+
+
+  /* ==========================================
+     08. เริ่มต้นการคลิกหรือลาก
+  ========================================== */
+
+  mapPicker.addEventListener(
+    "pointerdown",
+    function (event) {
+
+      /* ไม่ลากเมื่อคลิกปุ่มควบคุม */
+      if (event.target.closest("button")) {
+        return;
+      }
+
+      if (
+        event.pointerType === "mouse" &&
+        event.button !== 0
+      ) {
+        return;
+      }
+
+      activePointer = event.pointerId;
+
+      startX = event.clientX;
+      startY = event.clientY;
+
+      lastX = event.clientX;
+      lastY = event.clientY;
+
+      moved = false;
+
+      mapPicker.setPointerCapture(event.pointerId);
+    }
+  );
+
+
+  /* ==========================================
+     09. ลากแผนผัง
+
+     หากขยับเกิน 5px จะถือว่าเป็นการลาก
+     ไม่ใช่การเลือกจุดบ้าน
+  ========================================== */
+
+  mapPicker.addEventListener(
+    "pointermove",
+    function (event) {
+
+      if (event.pointerId !== activePointer) {
+        return;
+      }
+
+      const distance = Math.hypot(
+        event.clientX - startX,
+        event.clientY - startY
+      );
+
+      if (distance > 5) {
+        moved = true;
+      }
+
+      if (moved) {
+
+        panX += event.clientX - lastX;
+        panY += event.clientY - lastY;
+
+        mapPicker.classList.add("dragging");
+
+        updatePicker();
+      }
+
+      lastX = event.clientX;
+      lastY = event.clientY;
+    }
+  );
+
+
+  /* ==========================================
+     10. เลือกตำแหน่งบ้าน
+
+     คลิกสั้น ๆ = เลือกตำแหน่ง
+     ลากเมาส์ = เลื่อนแผนผัง
+
+     ใช้ขอบเขตภาพหลังซูม
+     คำนวณพิกัด X / Y
+  ========================================== */
+
+  function selectPosition(clientX, clientY) {
+
+    if (
+      !managerMap.complete ||
+      !managerMap.naturalWidth
+    ) {
+      return;
+    }
+
+    const rect = managerMap.getBoundingClientRect();
+
+    /* ต้องคลิกภายในภาพแผนผัง */
+    if (
+      clientX < rect.left ||
+      clientX > rect.right ||
+      clientY < rect.top ||
+      clientY > rect.bottom
+    ) {
+      return;
+    }
+
+    const x =
+      ((clientX - rect.left) / rect.width) * 100;
+
+    const y =
+      ((clientY - rect.top) / rect.height) * 100;
+
+    selectedX = Number(x.toFixed(2));
+    selectedY = Number(y.toFixed(2));
+
+    /* อัปเดตช่อง X/Y และตำแหน่งจุดทันทีเมื่อคลิกแผนผัง */
+    syncCoordinateInputs();
+    renderSelectedPosition();
+  }
+
+
+  /* ==========================================
+     11. หยุดลาก หรือเลือกจุดบ้าน
+  ========================================== */
+
+  mapPicker.addEventListener(
+    "pointerup",
+    function (event) {
+
+      if (event.pointerId !== activePointer) {
+        return;
+      }
+
+      if (!moved) {
+        selectPosition(event.clientX, event.clientY);
+      }
+
+      activePointer = null;
+      moved = false;
+
+      mapPicker.classList.remove("dragging");
+    }
+  );
+
+
+  /* ยกเลิกการลาก */
+  function cancelDrag(event) {
+
+    if (event.pointerId !== activePointer) {
+      return;
+    }
+
+    activePointer = null;
+    moved = false;
+
+    mapPicker.classList.remove("dragging");
+  }
+
+  mapPicker.addEventListener(
+    "pointercancel",
+    cancelDrag
+  );
+
+  mapPicker.addEventListener(
+    "lostpointercapture",
+    cancelDrag
+  );
+
+
+  /* ==========================================
+     12. ปรับเมื่อหน้าจอเปลี่ยนขนาด
+  ========================================== */
+
+  window.addEventListener("resize", updatePicker);
+
+  managerMap.addEventListener(
+    "load",
+    updatePicker
+  );
+
+
+  /* ==========================================
+     13. เริ่มต้นระบบ
+  ========================================== */
+
+  updatePicker();
+
+/* ==========================================
+   14. แสดงตัวอย่างรูปภาพบ้าน
+
+   เมื่อเลือกไฟล์จากคอม:
+   - ตรวจว่าเป็นรูปภาพ
+   - แสดงรูปตัวอย่างทันที
+   - ยังไม่อัปโหลดหรือบันทึกไฟล์
+========================================== */
+
+const housePhotoInput =
+  document.getElementById("house-photo-input");
+
+const housePhotoPreview =
+  document.getElementById("house-photo-preview");
+
+const housePreviewImage =
+  document.getElementById("house-preview-image");
+
+/* เก็บที่อยู่รูปชั่วคราว */
+let previewUrl = null;
+
+/* เมื่อผู้ใช้เลือกไฟล์รูปภาพ */
+housePhotoInput.addEventListener("change", function () {
+
+  const file = housePhotoInput.files[0];
+
+  /* ยกเลิกการแสดงรูปเดิม */
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+  }
+
+  housePreviewImage.removeAttribute("src");
+  housePhotoPreview.style.display = "none";
+
+  /* หากไม่ได้เลือกไฟล์ */
+  if (!file) {
+    return;
+  }
+
+  /* รับเฉพาะรูป JPEG, PNG และ WebP */
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp"
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    alert("กรุณาเลือกไฟล์รูปภาพ JPG, PNG หรือ WebP");
+    housePhotoInput.value = "";
+    return;
+  }
+
+  /* สร้างที่อยู่ชั่วคราวสำหรับแสดงภาพ */
+  previewUrl = URL.createObjectURL(file);
+
+  /* แสดงภาพตัวอย่าง */
+  housePreviewImage.src = previewUrl;
+  housePhotoPreview.style.display = "block";
+
+});
+
+/* ==========================================
+   15. ระบบล็อกอิน REEVA Manager
+========================================== */
+
+const loginPanel = document.getElementById("login-panel");
+const managerPanel = document.getElementById("manager-panel");
+const loginButton = document.getElementById("login-button");
+const loginMessage = document.getElementById("login-message");
+
+/* ==========================================
+   17. จดจำสถานะล็อกอิน REEVA Manager
+========================================== */
+
+async function restoreAdminSession() {
+
+  // ตรวจว่ามีบัญชีที่เข้าสู่ระบบอยู่หรือไม่
+  const { data: { user }, error } =
+    await reevaDB.auth.getUser();
+
+  if (error || !user) {
+    managerPanel.hidden = true;
+    loginPanel.hidden = false;
+    return;
+  }
+
+  // ตรวจว่าบัญชีนี้ได้รับสิทธิ์ผู้ดูแลหรือไม่
+  const { data: admins, error: adminError } = await reevaDB
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .limit(1);
+
+  if (adminError || !admins || admins.length === 0) {
+    managerPanel.hidden = true;
+    loginPanel.hidden = false;
+    return;
+  }
+
+  // ผ่านทั้งการยืนยันตัวตนและตรวจสิทธิ์
+  loginPanel.hidden = true;
+  managerPanel.hidden = false;
+  refreshHouseList();
+
+}
+
+// ตรวจสถานะเมื่อเปิดหน้าเว็บไซต์
+restoreAdminSession();
+
+
+/* ==========================================
+   16. ระบบออกจาก REEVA Manager
+========================================== */
+
+const logoutButton = document.getElementById("logout-button");
+
+logoutButton.addEventListener("click", async function () {
+  logoutButton.disabled = true;
+
+  const { error } = await reevaDB.auth.signOut();
+
+  if (error) {
+    alert("ออกจากระบบไม่สำเร็จ: " + error.message);
+    logoutButton.disabled = false;
+    return;
+  }
+
+  managerPanel.hidden = true;
+  loginPanel.hidden = false;
+  resetHouseForm();
+  houseList.replaceChildren();
+
+  document.getElementById("login-password").value = "";
+  loginMessage.textContent = "";
+
+  logoutButton.disabled = false;
+});
+
+
+loginButton.addEventListener("click", async function () {
+
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+
+  if (!email || !password) {
+    loginMessage.textContent = "กรุณากรอกอีเมลและรหัสผ่าน";
+    return;
+  }
+
+  loginButton.disabled = true;
+  loginMessage.textContent = "กำลังตรวจสอบบัญชี...";
+
+  try {
+    const { data, error } = await reevaDB.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      loginMessage.textContent = "เข้าสู่ระบบไม่สำเร็จ: " + error.message;
+      return;
+    }
+
+    const { data: admins, error: adminError } = await reevaDB
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .limit(1);
+
+    if (adminError || !admins || admins.length === 0) {
+      await reevaDB.auth.signOut();
+      loginMessage.textContent = "บัญชีนี้ไม่มีสิทธิ์ผู้ดูแล";
+      return;
+    }
+
+    loginPanel.hidden = true;
+    managerPanel.hidden = false;
+    refreshHouseList();
+    refreshSiteImages();
+
+  } catch (err) {
+    loginMessage.textContent = "เกิดข้อผิดพลาดในการเชื่อมต่อ";
+    console.error(err);
+  } finally {
+    loginButton.disabled = false;
+  }
+
+});
+
+/* ==========================================
+   18-20. จัดการข้อมูลบ้าน (เพิ่ม / ค้นหา / แก้ไข / ลบ)
+   คงระบบล็อกอิน แผนผัง และอัปโหลดรูปเดิมไว้
+========================================== */
+const houseIdInput = document.getElementById("house-id");
+const houseTourInput = document.getElementById("house-tour-url");
+const houseVisibleInput = document.getElementById("house-visible");
+const saveHouseButton = document.getElementById("save-house-button");
+const saveHouseMessage = document.getElementById("save-house-message");
+const findHouseButton = document.getElementById("find-house-button");
+const findHouseMessage = document.getElementById("find-house-message");
+const newHouseButton = document.getElementById("new-house-button");
+const refreshHousesButton = document.getElementById("refresh-houses-button");
+const deleteHouseButton = document.getElementById("delete-house-button");
+const editModeInfo = document.getElementById("edit-mode-info");
+const houseList = document.getElementById("house-list");
+const houseListMessage = document.getElementById("house-list-message");
+let busy = false;
+let loadedHouseCode = null;
+let searchSequence = 0;
+
+function houseCodeValue() {
+  return houseIdInput.value.trim().toUpperCase();
+}
+function clearPhotoSelection() {
+  housePhotoInput.value = "";
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+  }
+}
+function showStoredPhoto(url) {
+  clearPhotoSelection();
+  if (url) {
+    housePreviewImage.src = url;
+    housePhotoPreview.style.display = "block";
+  } else {
+    housePreviewImage.removeAttribute("src");
+    housePhotoPreview.style.display = "none";
+  }
+}
+function setMode() {
+  editModeInfo.textContent = editingHouseId === null
+    ? "โหมดเพิ่มบ้านใหม่ (ยังไม่บันทึก)"
+    : "โหมดแก้ไขบ้าน " + (loadedHouseCode || "") + " (ID " + editingHouseId + ")";
+  saveHouseButton.textContent = editingHouseId === null ? "บันทึกข้อมูลบ้านใหม่" : "บันทึกการแก้ไขบ้าน";
+  deleteHouseButton.hidden = editingHouseId === null;
+}
+function updateSaveButton() {
+  saveHouseButton.disabled = busy || !houseCodeValue() ||
+    !Number.isFinite(selectedX) || !Number.isFinite(selectedY);
+  findHouseButton.disabled = busy;
+  newHouseButton.disabled = busy;
+  refreshHousesButton.disabled = busy;
+  deleteHouseButton.disabled = busy;
+}
+function setBusy(value) {
+  busy = value;
+  updateSaveButton();
+}
+function resetHouseForm() {
+  searchSequence++;
+  editingHouseId = null;
+  loadedHouseCode = null;
+  houseIdInput.value = "";
+  houseTourInput.value = "";
+  houseVisibleInput.checked = false;
+  selectedX = null;
+  selectedY = null;
+  syncCoordinateInputs();
+  selectedMarker.hidden = true;
+  positionInfo.textContent = "ยังไม่ได้เลือกตำแหน่งบ้าน";
+  showStoredPhoto(null);
+  findHouseMessage.textContent = "";
+  saveHouseMessage.textContent = "";
+  setMode();
+  updateSaveButton();
+}
+function loadHouse(house) {
+  if (!house || !Number.isFinite(Number(house.x)) ||
+      !Number.isFinite(Number(house.y)) || house.x === null || house.y === null) {
+    findHouseMessage.textContent = "บ้านนี้ยังไม่มีพิกัดที่ถูกต้อง กรุณาตรวจสอบใน Supabase";
+    return;
+  }
+  editingHouseId = house.id;
+  loadedHouseCode = house.house_code;
+  houseIdInput.value = house.house_code || "";
+  selectedX = Number(house.x);
+  selectedY = Number(house.y);
+  syncCoordinateInputs();
+  renderSelectedPosition();
+  houseTourInput.value = house.tour_url || "";
+  houseVisibleInput.checked = house.is_visible === true;
+  showStoredPhoto(house.preview_url);
+  findHouseMessage.textContent = "โหลดข้อมูลบ้าน " + house.house_code + " แล้ว สามารถแก้ไขและกดบันทึกได้";
+  saveHouseMessage.textContent = "";
+  setMode();
+  updatePicker();
+  updateSaveButton();
+}
+
+// เปลี่ยนรหัสบ้านแล้วต้องค้นหาใหม่ จึงไม่เผลอแก้ผิดหลัง
+houseIdInput.addEventListener("input", function () {
+  searchSequence++;
+  if (editingHouseId !== null && houseCodeValue() !== loadedHouseCode) {
+    editingHouseId = null;
+    loadedHouseCode = null;
+    houseVisibleInput.checked = false;
+    selectedX = null; selectedY = null;
+    syncCoordinateInputs();
+    selectedMarker.hidden = true;
+    positionInfo.textContent = "ยังไม่ได้เลือกตำแหน่งบ้าน";
+    houseTourInput.value = "";
+    showStoredPhoto(null);
+    setMode();
+    findHouseMessage.textContent = "เปลี่ยนรหัสแล้ว โปรดค้นหารหัสใหม่ หรือกดเพิ่มบ้านใหม่เพื่อล้างข้อมูลเก่า";
+  }
+  updateSaveButton();
+});
+mapPicker.addEventListener("pointerup", updateSaveButton);
+newHouseButton.addEventListener("click", resetHouseForm);
+
+async function requireAdmin() {
+  const { data: { user }, error } = await reevaDB.auth.getUser();
+  if (error || !user) throw new Error("กรุณาเข้าสู่ระบบใหม่");
+  const { data: admin, error: adminError } = await reevaDB
+    .from("admin_users").select("user_id").eq("user_id", user.id).limit(1);
+  if (adminError || !admin || admin.length === 0) throw new Error("ไม่มีสิทธิ์ผู้ดูแล");
+}
+
+async function refreshHouseList() {
+  houseListMessage.textContent = "กำลังโหลดรายการบ้าน...";
+  houseList.replaceChildren();
+  try {
+    await requireAdmin();
+    const { data, error } = await reevaDB.from("houses")
+      .select("id, house_code, x, y, preview_url, tour_url, is_visible")
+      .order("house_code", { ascending:true });
+    if (error) throw error;
+    houseListMessage.textContent = data.length ? "เลือกบ้านเพื่อแก้ไข (" + data.length + " หลัง)" : "ยังไม่มีบ้านที่บันทึกไว้";
+    for (const house of data) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "house-entry";
+      button.textContent = house.house_code + (house.is_visible ? " • แสดง" : " • ซ่อน");
+      button.addEventListener("click", function () { loadHouse(house); });
+      houseList.appendChild(button);
+    }
+  } catch (err) {
+    houseListMessage.textContent = "โหลดรายการบ้านไม่สำเร็จ: " + err.message;
+  }
+}
+refreshHousesButton.addEventListener("click", refreshHouseList);
+
+findHouseButton.addEventListener("click", async function () {
+  const code = houseCodeValue();
+  if (!code) { findHouseMessage.textContent = "กรุณากรอกรหัสบ้าน"; return; }
+  const seq = ++searchSequence;
+  setBusy(true);
+  findHouseMessage.textContent = "กำลังค้นหา...";
+  try {
+    await requireAdmin();
+    const { data, error } = await reevaDB.from("houses")
+      .select("id, house_code, x, y, preview_url, tour_url, is_visible")
+      .eq("house_code", code).limit(2);
+    if (error) throw error;
+    if (seq !== searchSequence || code !== houseCodeValue()) return;
+    if (data.length === 1) loadHouse(data[0]);
+    else if (data.length > 1) findHouseMessage.textContent = "พบรหัสบ้านซ้ำในฐานข้อมูล กรุณาแก้ไขรายการซ้ำก่อน";
+    else findHouseMessage.textContent = "ไม่พบบ้าน " + code + " ในฐานข้อมูล";
+  } catch (err) {
+    findHouseMessage.textContent = "ค้นหาไม่สำเร็จ: " + err.message;
+  } finally { setBusy(false); }
+});
+
+saveHouseButton.addEventListener("click", async function () {
+  if (busy) return;
+  const code = houseCodeValue();
+  if (!code || !Number.isFinite(selectedX) || !Number.isFinite(selectedY) ||
+      selectedX < 0 || selectedX > 100 || selectedY < 0 || selectedY > 100) {
+    saveHouseMessage.textContent = "กรุณากรอกรหัสบ้านและเลือกตำแหน่ง";
+    return;
+  }
+  if (editingHouseId !== null && code !== loadedHouseCode) {
+    saveHouseMessage.textContent = "รหัสบ้านเปลี่ยนแล้ว โปรดค้นหาบ้านใหม่ก่อนบันทึก";
+    return;
+  }
+  setBusy(true);
+  saveHouseMessage.textContent = "กำลังตรวจข้อมูลและบันทึก...";
+  let uploadedImageUrl = null;
+  try {
+    await requireAdmin();
+    // ป้องกันรหัสซ้ำก่อนอัปโหลดรูป (ควรมี UNIQUE ในฐานข้อมูลด้วย)
+    const { data: matches, error: matchError } = await reevaDB.from("houses")
+      .select("id").eq("house_code", code).limit(3);
+    if (matchError) throw matchError;
+    if (editingHouseId === null && matches.length) throw new Error("รหัสบ้าน " + code + " มีอยู่แล้ว กรุณาเลือกจากรายการบ้านเพื่อแก้ไข");
+    if (editingHouseId !== null && matches.some(h => h.id !== editingHouseId)) throw new Error("พบรหัสบ้านซ้ำในฐานข้อมูล");
+
+    const houseData = {
+      house_code: code, x: selectedX, y: selectedY,
+      tour_url: houseTourInput.value.trim() || null,
+      is_visible: houseVisibleInput.checked
+    };
+    const file = housePhotoInput.files[0];
+    if (file) {
+      const allowed = { "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp" };
+      if (!allowed[file.type]) throw new Error("รองรับเฉพาะ JPG, PNG และ WebP");
+      if (file.size > 5 * 1024 * 1024) throw new Error("รูปภาพต้องไม่เกิน 5 MB");
+      const fileName = crypto.randomUUID() + "." + allowed[file.type];
+      const { error: uploadError } = await reevaDB.storage.from("house-images")
+        .upload(fileName, file, { contentType:file.type });
+      if (uploadError) throw uploadError;
+      uploadedImageUrl = reevaDB.storage.from("house-images").getPublicUrl(fileName).data.publicUrl;
+      houseData.preview_url = uploadedImageUrl;
+    }
+    const result = editingHouseId === null
+      ? await reevaDB.from("houses").insert(houseData).select("id, house_code, x, y, preview_url, tour_url, is_visible").single()
+      : await reevaDB.from("houses").update(houseData).eq("id", editingHouseId)
+          .select("id, house_code, x, y, preview_url, tour_url, is_visible").single();
+    if (result.error) throw result.error;
+    loadHouse(result.data);
+    saveHouseMessage.textContent = "บันทึกบ้าน " + code + " สำเร็จ";
+    await refreshHouseList();
+  } catch (err) {
+    saveHouseMessage.textContent = "บันทึกไม่สำเร็จ: " + err.message +
+      (uploadedImageUrl ? " (รูปที่อัปโหลดอาจค้างใน Storage โปรดตรวจสอบก่อนลบ)" : "");
+    console.error(err);
+  } finally { setBusy(false); }
+});
+
+deleteHouseButton.addEventListener("click", async function () {
+  if (busy || editingHouseId === null) return;
+  const id = editingHouseId;
+  const code = loadedHouseCode;
+  if (!confirm("ยืนยันลบบ้าน " + code + " ออกจากฐานข้อมูล? การลบนี้ย้อนกลับไม่ได้ และจะยังไม่ลบรูปใน Storage")) return;
+  setBusy(true);
+  saveHouseMessage.textContent = "กำลังลบบ้าน...";
+  try {
+    await requireAdmin();
+    const { data, error } = await reevaDB.from("houses")
+      .delete().eq("id", id).select("id").single();
+    if (error) throw error;
+    if (!data) throw new Error("ไม่พบข้อมูลบ้านที่ต้องการลบ");
+    resetHouseForm();
+    saveHouseMessage.textContent = "ลบบ้าน " + code + " แล้ว (รูปเดิมใน Storage ยังไม่ถูกลบ)";
+    await refreshHouseList();
+  } catch (err) {
+    saveHouseMessage.textContent = "ลบไม่สำเร็จ: " + err.message;
+  } finally { setBusy(false); }
+});
+
+// โหลดรายการเมื่อผู้ดูแลล็อกอินสำเร็จหรือกลับมาใช้งานหน้าเดิม
+setMode();
+updateSaveButton();
+
+
+/* =========================================================
+   จัดการรูปหน้า Premium ผ่าน public.site_images
+   ใช้ Storage bucket house-images ที่มีนโยบายอัปโหลดของ Admin อยู่แล้ว
+   ไม่ลบไฟล์ Storage อัตโนมัติ ป้องกันการลบภาพที่ยังใช้อยู่
+========================================================= */
+const siteImageRows = Array.from(document.querySelectorAll(".site-image-row"));
+const siteImagesStatus = document.getElementById("site-images-status");
+const siteDefaultCaptions = {
+  gallery_1: "บรรยากาศ REEVA Residence",
+  gallery_2: "รอภาพเพิ่มเติม",
+  gallery_3: "รอภาพเพิ่มเติม",
+  gallery_4: "รอภาพเพิ่มเติม"
+};
+let siteImagesBusy = false;
+async function refreshSiteImages() {
+  if (siteImagesBusy) return;
+  siteImagesStatus.textContent = "กำลังโหลดข้อมูลรูปหน้า Premium...";
+  const { data, error } = await reevaDB.from("site_images")
+    .select("slot,image_url,caption");
+  if (error) {
+    siteImagesStatus.textContent = "ยังเชื่อมระบบภาพไม่ได้: " + error.message +
+      " (ตรวจว่ารัน SQL ใน Supabase แล้ว)";
+    return;
+  }
+  const bySlot = new Map((data || []).map(r => [r.slot, r]));
+  siteImageRows.forEach(row => {
+    const saved = bySlot.get(row.dataset.slot);
+    const preview = row.querySelector(".site-image-preview");
+    const caption = row.querySelector(".site-image-caption");
+    preview.hidden = !saved;
+    if (saved) preview.src = saved.image_url;
+    else preview.removeAttribute("src");
+    if (caption) caption.value = saved ? (saved.caption || "") :
+      (siteDefaultCaptions[row.dataset.slot] || "");
+    row.querySelector(".site-image-message").textContent = saved
+      ? "ใช้รูปจาก Supabase แล้ว" : "ยังใช้รูปเริ่มต้นของเว็บไซต์";
+  });
+  siteImagesStatus.textContent = "โหลดข้อมูลภาพเรียบร้อย";
+}
+function setSiteImagesBusy(value) {
+  siteImagesBusy = value;
+  siteImageRows.forEach(row => row.querySelectorAll("button")
+    .forEach(button => { button.disabled = value; }));
+}
+siteImageRows.forEach(row => {
+  const slot = row.dataset.slot;
+  const fileInput = row.querySelector(".site-image-file");
+  const captionInput = row.querySelector(".site-image-caption");
+  const message = row.querySelector(".site-image-message");
+  row.querySelector(".site-image-upload").addEventListener("click", async () => {
+    if (siteImagesBusy) return;
+    const file = fileInput.files[0];
+    if (!file) { message.textContent = "กรุณาเลือกรูปภาพก่อน"; return; }
+    const types = { "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp" };
+    if (!types[file.type] || file.size > 5 * 1024 * 1024) {
+      message.textContent = "ใช้ JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB"; return;
+    }
+    setSiteImagesBusy(true);
+    message.textContent = "กำลังอัปโหลดรูป...";
+    let uploaded = false;
+    try {
+      await requireAdmin();
+      const path = "site-content/" + slot + "-" + crypto.randomUUID() + "." + types[file.type];
+      const { error: uploadError } = await reevaDB.storage.from("house-images")
+        .upload(path, file, { contentType:file.type });
+      if (uploadError) throw uploadError;
+      uploaded = true;
+      const url = reevaDB.storage.from("house-images").getPublicUrl(path).data.publicUrl;
+      const { error: saveError } = await reevaDB.from("site_images")
+        .upsert({ slot, image_url:url,
+                  caption:captionInput ? captionInput.value.trim() : "" },
+                { onConflict:"slot" });
+      if (saveError) throw saveError;
+      fileInput.value = "";
+      message.textContent = "บันทึกแล้ว! รีเฟรชหน้า Premium เพื่อดูรูปใหม่";
+    } catch (err) {
+      message.textContent = "ทำรายการไม่สำเร็จ: " + err.message +
+        (uploaded ? " (รูปอัปโหลดอาจค้างใน Storage)" : "");
+    } finally {
+      setSiteImagesBusy(false);
+    }
+  });
+  row.querySelector(".site-image-reset").addEventListener("click", async () => {
+    if (siteImagesBusy || !confirm("คืนค่ารูปเริ่มต้นของ " + slot + " ?")) return;
+    setSiteImagesBusy(true);
+    try {
+      await requireAdmin();
+      const { error } = await reevaDB.from("site_images")
+        .delete().eq("slot", slot);
+      if (error) throw error;
+      await refreshSiteImagesAfterReset();
+      message.textContent = "คืนค่ารูปเดิมแล้ว (ไฟล์บน Storage ไม่ถูกลบ)";
+    } catch (err) {
+      message.textContent = "คืนค่าไม่สำเร็จ: " + err.message;
+    } finally {
+      setSiteImagesBusy(false);
+    }
+  });
+});
+// refreshSiteImages() normally doesn't run while controls are busy.
+async function refreshSiteImagesAfterReset() {
+  const wasBusy = siteImagesBusy;
+  siteImagesBusy = false;
+  try { await refreshSiteImages(); }
+  finally { siteImagesBusy = wasBusy; }
+}
+
+</script>
+
+
+</body>
+</html>
